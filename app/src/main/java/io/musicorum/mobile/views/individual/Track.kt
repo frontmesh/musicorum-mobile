@@ -28,6 +28,7 @@ import io.musicorum.mobile.LocalAnalytics
 import io.musicorum.mobile.R
 import io.musicorum.mobile.coil.PlaceholderType
 import io.musicorum.mobile.components.*
+import io.musicorum.mobile.components.skeletons.DetailLoadingSkeleton
 import io.musicorum.mobile.serialization.NavigationTrack
 import io.musicorum.mobile.ui.theme.*
 import io.musicorum.mobile.utils.LocalSnackbar
@@ -101,10 +102,15 @@ fun Track(
             }
         }
         if (track == null) {
-            CenteredLoadingSpinner()
+            DetailLoadingSkeleton(
+                coverShape = RoundedCornerShape(6.dp),
+                showSubtitle = true
+            )
         } else {
             val screenScrollState = rememberScrollState()
-            val appBarState = rememberTopAppBarState(initialContentOffset = 700f)
+            val appBarState = rememberTopAppBarState(
+                initialContentOffset = DetailHeaderDefaults.initialAppBarContentOffset
+            )
             val appBarBehavior =
                 TopAppBarDefaults.pinnedScrollBehavior(state = appBarState)
             val loved = remember { mutableStateOf(track.loved) }

@@ -29,6 +29,7 @@ import io.musicorum.mobile.LocalAnalytics
 import io.musicorum.mobile.R
 import io.musicorum.mobile.coil.PlaceholderType
 import io.musicorum.mobile.components.*
+import io.musicorum.mobile.components.skeletons.DetailLoadingSkeleton
 import io.musicorum.mobile.ui.theme.*
 import io.musicorum.mobile.utils.LocalSnackbar
 import io.musicorum.mobile.utils.createPalette
@@ -84,7 +85,10 @@ fun Album(
         }
 
         if (album == null) {
-            CenteredLoadingSpinner()
+            DetailLoadingSkeleton(
+                coverShape = RoundedCornerShape(12.dp),
+                showSubtitle = true
+            )
         } else {
             val scrollState = rememberScrollState()
             LaunchedEffect(Unit) {
@@ -92,7 +96,9 @@ fun Album(
                 palette.value = createPalette(albumImgBmp)
                 paletteReady.value = true
             }
-            val appBarState = rememberTopAppBarState(initialContentOffset = 700f)
+            val appBarState = rememberTopAppBarState(
+                initialContentOffset = DetailHeaderDefaults.initialAppBarContentOffset
+            )
             val appBarBehavior =
                 TopAppBarDefaults.pinnedScrollBehavior(state = appBarState)
 

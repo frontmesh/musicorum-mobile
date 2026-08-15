@@ -27,6 +27,7 @@ import io.musicorum.mobile.LocalAnalytics
 import io.musicorum.mobile.R
 import io.musicorum.mobile.coil.PlaceholderType
 import io.musicorum.mobile.components.*
+import io.musicorum.mobile.components.skeletons.DetailLoadingSkeleton
 import io.musicorum.mobile.ui.theme.KindaBlack
 import io.musicorum.mobile.ui.theme.Typography
 import io.musicorum.mobile.utils.createPalette
@@ -64,9 +65,14 @@ fun Artist(artistName: String, artistViewModel: ArtistViewModel = viewModel()) {
     }
 
     if (artist == null) {
-        CenteredLoadingSpinner()
+        DetailLoadingSkeleton(
+            coverShape = CircleShape,
+            showSubtitle = false
+        )
     } else {
-        val appBarState = rememberTopAppBarState(initialContentOffset = 700f)
+        val appBarState = rememberTopAppBarState(
+            initialContentOffset = DetailHeaderDefaults.initialAppBarContentOffset
+        )
         val appBarBehavior =
             TopAppBarDefaults.pinnedScrollBehavior(state = appBarState)
         Scaffold(
