@@ -29,7 +29,7 @@ class DiscoverVm : ViewModel() {
     val trackResults = MutableLiveData<List<SearchTrack>>(emptyList())
     val albumResults = MutableLiveData<List<Album>>(emptyList())
     val artistResults = MutableLiveData<List<Artist>>(emptyList())
-    val userResult = MutableLiveData<List<User>>(null)
+    val userResult = MutableLiveData<List<User>>(emptyList())
 
     fun updateQuery(value: String) {
         query.value = value

@@ -1,5 +1,6 @@
 package io.musicorum.mobile.viewmodels
 
+import io.musicorum.mobile.serialization.User
 import io.musicorum.mobile.serialization.musicorum.Images
 import io.musicorum.mobile.serialization.musicorum.Resources
 import io.musicorum.mobile.serialization.musicorum.TrackResponse
@@ -8,6 +9,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DiscoverVmTest {
+    @Test
+    fun userResultsStartEmpty() {
+        assertEquals(emptyList<User>(), DiscoverVm().userResult.value)
+    }
+
     @Test
     fun imageLookupHandlesMissingEnrichmentResult() {
         val imageUrl = "https://example.com/image.jpg"
