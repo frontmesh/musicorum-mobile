@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,7 +42,11 @@ private val skeletonShape = RoundedCornerShape(6.dp)
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-internal fun DetailLoadingSkeleton(coverShape: Shape, showSubtitle: Boolean) {
+internal fun DetailLoadingSkeleton(
+    coverShape: Shape,
+    showSubtitle: Boolean,
+    showContext: Boolean = false
+) {
     val appBarState = rememberTopAppBarState(
         initialContentOffset = DetailHeaderDefaults.initialAppBarContentOffset
     )
@@ -95,6 +100,54 @@ internal fun DetailLoadingSkeleton(coverShape: Shape, showSubtitle: Boolean) {
                     )
                 }
             }
+            if (showContext) {
+                HorizontalDivider(Modifier.padding(vertical = 20.dp))
+                ContextRowSkeleton()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContextRowSkeleton() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+    ) {
+        ContextItemSkeleton(
+            imageShape = RoundedCornerShape(6.dp),
+            modifier = Modifier.weight(1f)
+        )
+        ContextItemSkeleton(
+            imageShape = CircleShape,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ContextItemSkeleton(imageShape: Shape, modifier: Modifier) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+    ) {
+        SkeletonBlock(
+            Modifier
+                .fillMaxWidth(0.48f)
+                .height(14.dp)
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SkeletonBlock(Modifier.size(44.dp), imageShape)
+            SkeletonBlock(
+                Modifier
+                    .weight(1f)
+                    .height(24.dp)
+            )
         }
     }
 }

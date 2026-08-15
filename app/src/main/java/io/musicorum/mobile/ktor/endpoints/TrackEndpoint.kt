@@ -6,6 +6,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.musicorum.mobile.ktor.KtorConfiguration
 import io.musicorum.mobile.serialization.BaseIndividualTrack
@@ -15,6 +16,8 @@ import io.musicorum.mobile.serialization.entities.Track
 import io.musicorum.mobile.userData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
 
 object TrackEndpoint {
     suspend fun getTrack(
@@ -31,11 +34,8 @@ object TrackEndpoint {
             parameter("artist", artist)
             parameter("autocorrect", autoCorrectValue)
         }
-        return if (res.status.isSuccess()) {
-            res.body<BaseIndividualTrack>()
-        } else {
-            null
-        }
+        if (!res.status.isSuccess()) return null
+        return decodeTrackResponse(res.bodyAsText())
     }
 
     suspend fun updateFavoritePreference(track: Track, ctx: Context) {
@@ -92,4 +92,12 @@ object TrackEndpoint {
         } else null
     }
 
+}
+
+internal fun decodeTrackResponse(response: String): BaseIndividualTrack? {
+    return try {
+        KtorConfiguration.jsonConfig.decodeFromString(response)
+    } catch (_: SerializationException) {
+        null
+    }
 }

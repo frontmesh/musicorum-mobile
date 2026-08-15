@@ -15,55 +15,72 @@ import io.musicorum.mobile.serialization.SimilarTrack
 import io.musicorum.mobile.serialization.entities.Album
 import io.musicorum.mobile.serialization.entities.Artist
 import io.musicorum.mobile.serialization.entities.Track
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+
+enum class TrackLoadState {
+    LOADING,
+    CONTENT,
+    ERROR
+}
 
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
     val track by lazy { MutableLiveData<Track>() }
     val similar by lazy { MutableLiveData<SimilarTrack>() }
     val artistCover by lazy { MutableLiveData<String>() }
-    val error by lazy { MutableLiveData<Boolean>(null) }
+    val loadState by lazy { MutableLiveData(TrackLoadState.LOADING) }
     val ctx = application
 
-    suspend fun fetchTrack(
+    fun fetchTrack(
         trackName: String,
         artist: String,
         autoCorrect: Boolean?
     ) {
         viewModelScope.launch {
-            val user = LocalUserRepository(ctx).getUser()
-            val res = TrackEndpoint.getTrack(trackName, artist, user.username, autoCorrect)
-            val musRes = MusicorumTrackEndpoint.fetchTracks(listOf(res!!.track))
-            musRes.getOrNull(0)?.bestResource?.bestImageUrl?.let {
-                res.track.album =
-                    Album(
+            loadState.value = TrackLoadState.LOADING
+            try {
+                val user = LocalUserRepository(ctx).getUser()
+                val res = TrackEndpoint.getTrack(trackName, artist, user.username, autoCorrect)
+                if (res == null) {
+                    loadState.value = TrackLoadState.ERROR
+                    return@launch
+                }
+                val musRes = MusicorumTrackEndpoint.fetchTracks(listOf(res.track))
+                musRes.getOrNull(0)?.bestResource?.bestImageUrl?.let {
+                    res.track.album = Album(
                         name = musRes.getOrNull(0)?.album ?: res.track.name,
                         images = listOf(Image("unknown", it)),
                         tags = null,
                         _tracks = null,
                         artist = res.track.artist.name
                     )
-            }
-
-
-            if (res.track.artist.images.isNullOrEmpty()) {
-                val musArtistRes =
-                    MusicorumArtistEndpoint.fetchArtist(listOf(res.track.artist))
-                musArtistRes[0].bestResource?.bestImageUrl?.let {
-                    res.track.artist.bestImageUrl = it
                 }
+
+                if (res.track.artist.images.isNullOrEmpty()) {
+                    val musArtistRes =
+                        MusicorumArtistEndpoint.fetchArtist(listOf(res.track.artist))
+                    musArtistRes[0].bestResource?.bestImageUrl?.let {
+                        res.track.artist.bestImageUrl = it
+                    }
+                }
+
+                val musicorumReqAlbum =
+                    musRes.getOrNull(0)?.album?.let { Album(name = it, artist = artist) }
+
+                try {
+                    val musARes = MusicorumAlbumEndpoint.fetchAlbums(listOf(musicorumReqAlbum))
+                    res.track.album?.bestImageUrl =
+                        musARes[0]?.resources?.getOrNull(0)?.bestImageUrl.toString()
+                } catch (_: ServerResponseException) {
+                }
+
+                track.value = res.track
+                loadState.value = TrackLoadState.CONTENT
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                loadState.value = TrackLoadState.ERROR
             }
-
-            val musicorumReqAlbum =
-                musRes.getOrNull(0)?.album?.let { Album(name = it, artist = artist) }
-
-            try {
-                val musARes = MusicorumAlbumEndpoint.fetchAlbums(listOf(musicorumReqAlbum))
-                res.track.album?.bestImageUrl =
-                    musARes[0]?.resources?.getOrNull(0)?.bestImageUrl.toString()
-            } catch (_: ServerResponseException) {
-            }
-
-            track.value = res.track
         }
     }
 
@@ -71,7 +88,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val res = TrackEndpoint.fetchSimilar(baseTrack, limit, autoCorrect)
             if (res == null) {
-                error.value = true
                 return@launch
             }
             if (res.similarTracks.tracks.isNotEmpty()) {

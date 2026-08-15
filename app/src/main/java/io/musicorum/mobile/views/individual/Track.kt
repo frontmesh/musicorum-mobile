@@ -31,9 +31,9 @@ import io.musicorum.mobile.components.*
 import io.musicorum.mobile.components.skeletons.DetailLoadingSkeleton
 import io.musicorum.mobile.serialization.NavigationTrack
 import io.musicorum.mobile.ui.theme.*
-import io.musicorum.mobile.utils.LocalSnackbar
 import io.musicorum.mobile.utils.createPalette
 import io.musicorum.mobile.utils.getBitmap
+import io.musicorum.mobile.viewmodels.TrackLoadState
 import io.musicorum.mobile.viewmodels.TrackViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -68,14 +68,7 @@ fun Track(
         var paletteReady by remember { mutableStateOf(false) }
         val similarTracks = trackViewModel.similar.observeAsState().value
         val artistCover = trackViewModel.artistCover.observeAsState().value
-        val errored = trackViewModel.error.observeAsState().value
-        val localSnack = LocalSnackbar.current
-
-        LaunchedEffect(key1 = errored) {
-            if (errored == true) {
-                localSnack.showSnackbar("Failed to fetch track")
-            }
-        }
+        val loadState = trackViewModel.loadState.observeAsState(TrackLoadState.LOADING).value
 
         LaunchedEffect(key1 = track) {
             if (track == null) {
@@ -101,10 +94,19 @@ fun Track(
                 }
             }
         }
-        if (track == null) {
+        if (loadState == TrackLoadState.ERROR) {
+            TrackLoadError {
+                trackViewModel.fetchTrack(
+                    partialTrack.trackName,
+                    partialTrack.trackArtist,
+                    null
+                )
+            }
+        } else if (track == null) {
             DetailLoadingSkeleton(
                 coverShape = RoundedCornerShape(6.dp),
-                showSubtitle = true
+                showSubtitle = true,
+                showContext = true
             )
         } else {
             val screenScrollState = rememberScrollState()
@@ -207,6 +209,22 @@ fun Track(
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TrackLoadError(onRetry: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(KindaBlack)
+    ) {
+        Text(stringResource(R.string.something_went_wrong))
+        OutlinedButton(onClick = onRetry) {
+            Text(stringResource(R.string.retry))
         }
     }
 }
