@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.musicorum.mobile.ktor.KtorConfiguration
 import io.musicorum.mobile.serialization.BaseIndividualTrack
@@ -24,9 +26,14 @@ object TrackEndpoint {
         trackName: String,
         artist: String,
         username: String?,
-        autoCorrect: Boolean?
+        autoCorrect: Boolean?,
+        refresh: Boolean = false
     ): BaseIndividualTrack? {
         val res = KtorConfiguration.lastFmClient.get {
+            if (refresh) {
+                headers.remove(HttpHeaders.CacheControl)
+                header(HttpHeaders.CacheControl, "no-cache")
+            }
             val autoCorrectValue = if (autoCorrect == true) 1 else 0
             parameter("track", trackName)
             parameter("method", "track.getInfo")

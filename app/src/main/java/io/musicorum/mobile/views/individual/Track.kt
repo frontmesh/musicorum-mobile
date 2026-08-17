@@ -20,7 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.palette.graphics.Palette
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.logEvent
@@ -44,7 +44,7 @@ import kotlinx.serialization.json.Json
 @Composable
 fun Track(
     trackData: String?,
-    trackViewModel: TrackViewModel = viewModel()
+    trackViewModel: TrackViewModel = hiltViewModel()
 ) {
     val analytics = LocalAnalytics.current!!
     LaunchedEffect(Unit) {
@@ -67,7 +67,6 @@ fun Track(
         var coverPalette: Palette? by remember { mutableStateOf(null) }
         var paletteReady by remember { mutableStateOf(false) }
         val similarTracks = trackViewModel.similar.observeAsState().value
-        val artistCover = trackViewModel.artistCover.observeAsState().value
         val loadState = trackViewModel.loadState.observeAsState(TrackLoadState.LOADING).value
 
         LaunchedEffect(key1 = track) {
@@ -88,9 +87,6 @@ fun Track(
                         coverPalette = createPalette(bmp)
                     }
                     paletteReady = true
-                }
-                launch {
-                    trackViewModel.fetchArtistCover(track.artist)
                 }
             }
         }
@@ -127,8 +123,9 @@ fun Track(
                         IconButton(
                             onClick = {
                                 analytics.logEvent("topbar_like_pressed", null)
-                                trackViewModel.updateFavoritePreference(track)
-                                loved.value = !loved.value
+                                val currentlyLoved = loved.value
+                                trackViewModel.updateFavoritePreference(track, currentlyLoved)
+                                loved.value = !currentlyLoved
                             }) {
                             if (loved.value) {
                                 Icon(Icons.Rounded.Favorite, null)
@@ -149,7 +146,7 @@ fun Track(
                     verticalArrangement = Arrangement.Center
                 ) {
                     GradientHeader(
-                        artistCover,
+                        track.artist.bestImageUrl,
                         track.album?.bestImageUrl,
                         RoundedCornerShape(6.dp),
                         PlaceholderType.TRACK
