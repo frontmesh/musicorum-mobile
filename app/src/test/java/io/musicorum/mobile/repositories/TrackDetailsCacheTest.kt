@@ -38,10 +38,25 @@ class TrackDetailsCacheTest {
         val second = key("second")
         val third = key("third")
 
-        cache.putTrack(first, track("first"), artworkRefreshed = true)
-        cache.putTrack(second, track("second"), artworkRefreshed = true)
+        cache.putTrack(
+            first,
+            track("first"),
+            albumArtworkRefreshed = true,
+            artistArtworkRefreshed = true
+        )
+        cache.putTrack(
+            second,
+            track("second"),
+            albumArtworkRefreshed = true,
+            artistArtworkRefreshed = true
+        )
         cache.get(first)
-        cache.putTrack(third, track("third"), artworkRefreshed = true)
+        cache.putTrack(
+            third,
+            track("third"),
+            albumArtworkRefreshed = true,
+            artistArtworkRefreshed = true
+        )
 
         assertNull(cache.get(second))
         assertEquals("first", cache.get(first)?.track?.name)
@@ -53,7 +68,12 @@ class TrackDetailsCacheTest {
         var now = 10L
         val cache = TrackDetailsCache(maxEntries = 1, clock = { now })
         val key = key("track")
-        cache.putTrack(key, track("original"), artworkRefreshed = true)
+        cache.putTrack(
+            key,
+            track("original"),
+            albumArtworkRefreshed = true,
+            artistArtworkRefreshed = true
+        )
         val original = cache.get(key)!!
 
         now = 20L
@@ -63,7 +83,36 @@ class TrackDetailsCacheTest {
 
         assertSame(updated, result.track)
         assertEquals(original.trackUpdatedAt, result.trackUpdatedAt)
-        assertEquals(original.artworkUpdatedAt, result.artworkUpdatedAt)
+        assertEquals(original.albumArtworkUpdatedAt, result.albumArtworkUpdatedAt)
+        assertEquals(original.artistArtworkUpdatedAt, result.artistArtworkUpdatedAt)
+    }
+
+    @Test
+    fun artworkTimestampsAdvanceOnlyForSuccessfulRefreshes() {
+        var now = 10L
+        val cache = TrackDetailsCache(maxEntries = 1, clock = { now })
+        val key = key("track")
+
+        cache.putTrack(
+            key,
+            track("track"),
+            albumArtworkRefreshed = true,
+            artistArtworkRefreshed = false
+        )
+        val albumOnly = cache.get(key)!!
+        assertEquals(10L, albumOnly.albumArtworkUpdatedAt)
+        assertNull(albumOnly.artistArtworkUpdatedAt)
+
+        now = 20L
+        cache.putTrack(
+            key,
+            track("track"),
+            albumArtworkRefreshed = false,
+            artistArtworkRefreshed = true
+        )
+        val both = cache.get(key)!!
+        assertEquals(10L, both.albumArtworkUpdatedAt)
+        assertEquals(20L, both.artistArtworkUpdatedAt)
     }
 
     private fun key(track: String): TrackDetailsCacheKey {

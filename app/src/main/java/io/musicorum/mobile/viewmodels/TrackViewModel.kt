@@ -40,6 +40,7 @@ class TrackViewModel @Inject constructor(
     private val ctx = application
     private var currentCacheKey: TrackDetailsCacheKey? = null
     private var trackFetchJob: Job? = null
+    private val similarRequestGate = SimilarTrackRequestGate()
 
     fun fetchTrack(
         trackName: String,
@@ -77,18 +78,27 @@ class TrackViewModel @Inject constructor(
                     return@launch
                 }
 
-                val refreshArtwork = cached == null || !detailsCache.isArtworkFresh(cached)
-                val refreshedTrack = if (refreshArtwork) {
-                    enrichArtwork(response.track, cached?.track)
-                } else {
-                    mergeArtwork(response.track, cached.track)
-                }
+                val refreshAlbumArtwork =
+                    cached == null || !detailsCache.isAlbumArtworkFresh(cached)
+                val refreshArtistArtwork =
+                    cached == null || !detailsCache.isArtistArtworkFresh(cached)
+                val artwork = enrichArtwork(
+                    track = response.track,
+                    cachedTrack = cached?.track,
+                    refreshAlbum = refreshAlbumArtwork,
+                    refreshArtist = refreshArtistArtwork
+                )
                 if (currentCacheKey != cacheKey) {
                     return@launch
                 }
 
-                detailsCache.putTrack(cacheKey, refreshedTrack, refreshArtwork)
-                publishTrack(refreshedTrack)
+                detailsCache.putTrack(
+                    key = cacheKey,
+                    track = artwork.track,
+                    albumArtworkRefreshed = artwork.albumRefreshed,
+                    artistArtworkRefreshed = artwork.artistRefreshed
+                )
+                publishTrack(artwork.track)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -103,6 +113,9 @@ class TrackViewModel @Inject constructor(
         val cached = detailsCache.get(cacheKey)
         if (cached != null && detailsCache.isSimilarFresh(cached)) {
             similar.value = cached.similar
+            return
+        }
+        if (!similarRequestGate.tryStart(cacheKey)) {
             return
         }
 
@@ -129,6 +142,8 @@ class TrackViewModel @Inject constructor(
             throw error
         } catch (_: Exception) {
             cached?.similar?.let { similar.value = it }
+        } finally {
+            similarRequestGate.finish(cacheKey)
         }
     }
 
@@ -159,39 +174,57 @@ class TrackViewModel @Inject constructor(
         }
     }
 
-    private suspend fun enrichArtwork(track: Track, cachedTrack: Track?): Track {
+    private suspend fun enrichArtwork(
+        track: Track,
+        cachedTrack: Track?,
+        refreshAlbum: Boolean,
+        refreshArtist: Boolean
+    ): ArtworkRefreshResult {
         if (cachedTrack != null) {
             mergeArtwork(track, cachedTrack)
         }
 
-        val trackResource = optionalRequest {
-            MusicorumTrackEndpoint.fetchTracks(listOf(track)).firstOrNull()
-        }
-        trackResource?.bestAvailableImageUrl()?.let { imageUrl ->
-            track.album = Album(
-                name = trackResource.album,
-                images = listOf(Image("unknown", imageUrl)),
-                artist = track.artist.name
-            )
+        var albumRefreshed = false
+        if (refreshAlbum) {
+            val trackResource = optionalRequest {
+                MusicorumTrackEndpoint.fetchTracks(listOf(track)).firstOrNull()
+            }
+            trackResource?.bestAvailableImageUrl()?.let { imageUrl ->
+                track.album = Album(
+                    name = trackResource.album,
+                    images = listOf(Image("unknown", imageUrl)),
+                    artist = track.artist.name
+                )
+                albumRefreshed = true
+            }
         }
 
-        val artistResource = optionalRequest {
-            MusicorumArtistEndpoint.fetchArtist(listOf(track.artist)).firstOrNull()
-        }
-        artistResource?.bestAvailableImageUrl()?.let { imageUrl ->
-            track.artist.bestImageUrl = imageUrl
+        var artistRefreshed = false
+        if (refreshArtist) {
+            val artistResource = optionalRequest {
+                MusicorumArtistEndpoint.fetchArtist(listOf(track.artist)).firstOrNull()
+            }
+            artistResource?.bestAvailableImageUrl()?.let { imageUrl ->
+                track.artist.bestImageUrl = imageUrl
+                artistRefreshed = true
+            }
         }
 
         val album = track.album
-        if (album != null) {
+        if (refreshAlbum && album != null) {
             val albumResource = optionalRequest {
                 MusicorumAlbumEndpoint.fetchAlbums(listOf(album)).firstOrNull()
             }
             albumResource?.bestAvailableImageUrl()?.let { imageUrl ->
                 album.bestImageUrl = imageUrl
+                albumRefreshed = true
             }
         }
-        return track
+        return ArtworkRefreshResult(
+            track = track,
+            albumRefreshed = albumRefreshed,
+            artistRefreshed = artistRefreshed
+        )
     }
 
     private fun mergeArtwork(track: Track, cachedTrack: Track): Track {
@@ -233,6 +266,34 @@ class TrackViewModel @Inject constructor(
     }
 }
 
+private data class ArtworkRefreshResult(
+    val track: Track,
+    val albumRefreshed: Boolean,
+    val artistRefreshed: Boolean
+)
+
+internal class SimilarTrackRequestGate {
+    private var activeKey: TrackDetailsCacheKey? = null
+
+    @Synchronized
+    fun tryStart(key: TrackDetailsCacheKey): Boolean {
+        if (activeKey == key) {
+            return false
+        }
+        activeKey = key
+        return true
+    }
+
+    @Synchronized
+    fun finish(key: TrackDetailsCacheKey) {
+        if (activeKey == key) {
+            activeKey = null
+        }
+    }
+}
+
 private fun TrackResponse.bestAvailableImageUrl(): String? {
-    return bestResource?.bestImageUrl ?: resources.firstOrNull()?.bestImageUrl
+    val preferredImage = bestResource?.bestImageUrl?.takeIf(String::isNotBlank)
+    return preferredImage
+        ?: resources.firstOrNull()?.bestImageUrl?.takeIf(String::isNotBlank)
 }

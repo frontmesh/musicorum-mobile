@@ -34,7 +34,8 @@ internal data class TrackDetailsCacheKey(
 internal data class TrackDetailsCacheEntry(
     val track: Track,
     val trackUpdatedAt: Long,
-    val artworkUpdatedAt: Long?,
+    val albumArtworkUpdatedAt: Long?,
+    val artistArtworkUpdatedAt: Long?,
     val similar: SimilarTrack? = null,
     val similarUpdatedAt: Long? = null
 )
@@ -74,8 +75,16 @@ class TrackDetailsCache internal constructor(
         )
     }
 
-    internal fun isArtworkFresh(entry: TrackDetailsCacheEntry): Boolean {
-        val updatedAt = entry.artworkUpdatedAt ?: return false
+    internal fun isAlbumArtworkFresh(entry: TrackDetailsCacheEntry): Boolean {
+        val updatedAt = entry.albumArtworkUpdatedAt ?: return false
+        return isFresh(
+            updatedAt,
+            TrackDetailsCachePolicy.ARTWORK_FRESHNESS_MILLIS
+        )
+    }
+
+    internal fun isArtistArtworkFresh(entry: TrackDetailsCacheEntry): Boolean {
+        val updatedAt = entry.artistArtworkUpdatedAt ?: return false
         return isFresh(
             updatedAt,
             TrackDetailsCachePolicy.ARTWORK_FRESHNESS_MILLIS
@@ -94,14 +103,24 @@ class TrackDetailsCache internal constructor(
     internal fun putTrack(
         key: TrackDetailsCacheKey,
         track: Track,
-        artworkRefreshed: Boolean
+        albumArtworkRefreshed: Boolean,
+        artistArtworkRefreshed: Boolean
     ) {
         val cached = entries[key]
         val now = clock()
         entries[key] = TrackDetailsCacheEntry(
             track = track,
             trackUpdatedAt = now,
-            artworkUpdatedAt = if (artworkRefreshed) now else cached?.artworkUpdatedAt,
+            albumArtworkUpdatedAt = if (albumArtworkRefreshed) {
+                now
+            } else {
+                cached?.albumArtworkUpdatedAt
+            },
+            artistArtworkUpdatedAt = if (artistArtworkRefreshed) {
+                now
+            } else {
+                cached?.artistArtworkUpdatedAt
+            },
             similar = cached?.similar,
             similarUpdatedAt = cached?.similarUpdatedAt
         )

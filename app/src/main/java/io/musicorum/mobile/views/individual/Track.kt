@@ -35,7 +35,6 @@ import io.musicorum.mobile.utils.createPalette
 import io.musicorum.mobile.utils.getBitmap
 import io.musicorum.mobile.viewmodels.TrackLoadState
 import io.musicorum.mobile.viewmodels.TrackViewModel
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 
@@ -69,26 +68,27 @@ fun Track(
         val similarTracks = trackViewModel.similar.observeAsState().value
         val loadState = trackViewModel.loadState.observeAsState(TrackLoadState.LOADING).value
 
-        LaunchedEffect(key1 = track) {
-            if (track == null) {
-                trackViewModel.fetchTrack(
-                    partialTrack.trackName,
-                    partialTrack.trackArtist,
-                    null
-                )
-            } else {
-                launch {
-                    trackViewModel.fetchSimilar(track, 5, null)
-                }
-
-                launch {
-                    if (!track.album?.images.isNullOrEmpty()) {
-                        val bmp = getBitmap(track.album?.bestImageUrl, ctx)
-                        coverPalette = createPalette(bmp)
-                    }
-                    paletteReady = true
-                }
+        LaunchedEffect(partialTrack.trackName, partialTrack.trackArtist) {
+            trackViewModel.fetchTrack(
+                partialTrack.trackName,
+                partialTrack.trackArtist,
+                null
+            )
+        }
+        LaunchedEffect(track?.name, track?.artist?.name) {
+            track?.let {
+                trackViewModel.fetchSimilar(it, 5, null)
             }
+        }
+        val albumImageUrl = track?.album?.bestImageUrl
+        LaunchedEffect(albumImageUrl) {
+            coverPalette = null
+            paletteReady = false
+            if (!albumImageUrl.isNullOrBlank()) {
+                val bitmap = getBitmap(albumImageUrl, ctx)
+                coverPalette = createPalette(bitmap)
+            }
+            paletteReady = true
         }
         if (loadState == TrackLoadState.ERROR) {
             TrackLoadError {
