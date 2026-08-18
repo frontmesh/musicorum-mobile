@@ -19,7 +19,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.palette.graphics.Palette
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -44,7 +44,7 @@ import kotlinx.serialization.json.Json
 @Composable
 fun Album(
     albumData: String?,
-    albumViewModel: AlbumViewModel = viewModel(),
+    albumViewModel: AlbumViewModel = hiltViewModel(),
     nav: NavHostController
 ) {
     val analytics = LocalAnalytics.current!!
@@ -78,10 +78,8 @@ fun Album(
             }
         }
 
-        LaunchedEffect(album) {
-            if (album == null) {
-                albumViewModel.getAlbum(partialAlbum.name, partialAlbum.artist)
-            }
+        LaunchedEffect(partialAlbum.name, partialAlbum.artist) {
+            albumViewModel.loadAlbum(partialAlbum.name, partialAlbum.artist)
         }
 
         if (album == null) {
@@ -91,8 +89,10 @@ fun Album(
             )
         } else {
             val scrollState = rememberScrollState()
-            LaunchedEffect(Unit) {
-                val albumImgBmp = getBitmap(album.bestImageUrl, ctx)
+            val albumImageUrl = album.bestImageUrl
+            LaunchedEffect(albumImageUrl) {
+                paletteReady.value = false
+                val albumImgBmp = getBitmap(albumImageUrl, ctx)
                 palette.value = createPalette(albumImgBmp)
                 paletteReady.value = true
             }

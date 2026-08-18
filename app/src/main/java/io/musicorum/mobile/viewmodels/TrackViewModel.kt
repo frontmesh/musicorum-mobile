@@ -17,7 +17,7 @@ import io.musicorum.mobile.serialization.Image
 import io.musicorum.mobile.serialization.SimilarTrack
 import io.musicorum.mobile.serialization.entities.Album
 import io.musicorum.mobile.serialization.entities.Track
-import io.musicorum.mobile.serialization.musicorum.TrackResponse
+import io.musicorum.mobile.serialization.musicorum.bestAvailableImageUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -255,15 +255,6 @@ class TrackViewModel @Inject constructor(
         return track
     }
 
-    private suspend fun <T> optionalRequest(block: suspend () -> T): T? {
-        return try {
-            block()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            null
-        }
-    }
 }
 
 private data class ArtworkRefreshResult(
@@ -290,10 +281,4 @@ internal class SimilarTrackRequestGate {
             activeKey = null
         }
     }
-}
-
-private fun TrackResponse.bestAvailableImageUrl(): String? {
-    val preferredImage = bestResource?.bestImageUrl?.takeIf(String::isNotBlank)
-    return preferredImage
-        ?: resources.firstOrNull()?.bestImageUrl?.takeIf(String::isNotBlank)
 }
